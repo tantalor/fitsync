@@ -1,3 +1,0 @@
-Fitsync is a python app that syncs data between Fitbit and Google Fit.
-
-Currently, it only copies weight data from Fitbit to Google.
