@@ -1,6 +1,6 @@
 import httplib2
 import sys
-from time import time as now
+import time
 import yaml
 
 import fitbit
@@ -11,6 +11,8 @@ from googleapiclient.errors import HttpError
 
 
 POUNDS_PER_KILOGRAM = 2.20462
+
+TIME_FORMAT = "%a, %d %b %Y %H:%M:%S"
 
 
 def GetFitbitClient():
@@ -111,10 +113,17 @@ def main():
 
   # Get weight dataset.
   if command == 'get':
-    print googleClient.users().dataSources().datasets().get(
+    data = googleClient.users().dataSources().datasets().get(
       userId='me',
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
+    for point in data['point']:
+      startTimeNanos = point['startTimeNanos']
+      fpVal = point['value'][0]['fpVal']
+      startTimeSecs = int(startTimeNanos) / 1e9
+      readableTime = time.strftime(TIME_FORMAT, time.localtime(startTimeSecs))
+      weightLbs = float(fpVal) * POUNDS_PER_KILOGRAM
+      print "%.1f lbs, %s" % (weightLbs, readableTime)
 
   # Delete weight dataset.
   elif command == 'delete':
