@@ -117,7 +117,7 @@ def main():
       datasetId=datasetId).execute()
 
   # Delete weight dataset.
-  if command == 'delete':
+  elif command == 'delete':
     googleClient.users().dataSources().datasets().delete(
       userId='me',
       dataSourceId=dataSourceId,
@@ -125,7 +125,7 @@ def main():
     print "deleted data"
 
   # Upload weight dataset.  
-  if command == 'patch':
+  elif command == 'patch':
     print googleClient.users().dataSources().datasets().patch(
       userId='me',
       dataSourceId=dataSourceId,
@@ -136,6 +136,9 @@ def main():
         minStartTimeNs=minLogNs,
         point=googleWeightLogs,
       )).execute()
+
+  else:
+    print "bad command"
 
 
 if __name__ == '__main__':
