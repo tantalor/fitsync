@@ -107,16 +107,19 @@ def main():
 
   datasetId = '%s-%s' % (minLogNs, maxLogNs)
 
+  def GetData():
+    return googleClient.users().dataSources().datasets().get(
+      userId='me',
+      dataSourceId=dataSourceId,
+      datasetId=datasetId).execute()
+
   command = 'patch'
   if len(sys.argv) > 1:
     command = sys.argv[1]
 
   # Get weight dataset.
   if command == 'get':
-    data = googleClient.users().dataSources().datasets().get(
-      userId='me',
-      dataSourceId=dataSourceId,
-      datasetId=datasetId).execute()
+    data = GetData()
     for point in data['point']:
       startTimeNanos = point['startTimeNanos']
       fpVal = point['value'][0]['fpVal']
@@ -127,15 +130,22 @@ def main():
 
   # Delete weight dataset.
   elif command == 'delete':
+    dataPrior = GetData()
     googleClient.users().dataSources().datasets().delete(
       userId='me',
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
-    print "deleted data"
+    dataPost = GetData()
+    count = 0
+    for point in dataPrior['point']:
+      if not PointInData(point['startTimeNanos'], dataPost):
+        count = count + 1
+    print "Deleted %d points" % count
 
   # Upload weight dataset.  
   elif command == 'patch':
-    print googleClient.users().dataSources().datasets().patch(
+    dataPrior = GetData()
+    googleClient.users().dataSources().datasets().patch(
       userId='me',
       dataSourceId=dataSourceId,
       datasetId=datasetId,
@@ -145,9 +155,22 @@ def main():
         minStartTimeNs=minLogNs,
         point=googleWeightLogs,
       )).execute()
+    dataPost = GetData()
+    count = 0
+    for point in dataPost['point']:
+      if not PointInData(point['startTimeNanos'], dataPrior):
+        count = count + 1
+    print "Added %d points" % count
 
   else:
     print "bad command"
+
+
+def PointInData(startTimeNanos, data):
+  if 'point' in data:
+    for point in data['point']:
+      if startTimeNanos == point['startTimeNanos']:
+        return True
 
 
 if __name__ == '__main__':
