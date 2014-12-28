@@ -113,6 +113,11 @@ def main():
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
 
+  def PointsDifference(left, right):
+    return len(
+      set(point['startTimeNanos'] for point in left['point']) -
+      set(point['startTimeNanos'] for point in right['point']))
+
   command = 'patch'
   if len(sys.argv) > 1:
     command = sys.argv[1]
@@ -136,11 +141,7 @@ def main():
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
     dataPost = GetData()
-    count = 0
-    for point in dataPrior['point']:
-      if not PointInData(point['startTimeNanos'], dataPost):
-        count = count + 1
-    print "Deleted %d points" % count
+    print "Deleted %d points" % PointsDifference(dataPrior, dataPost)
 
   # Upload weight dataset.  
   elif command == 'patch':
@@ -156,11 +157,7 @@ def main():
         point=googleWeightLogs,
       )).execute()
     dataPost = GetData()
-    count = 0
-    for point in dataPost['point']:
-      if not PointInData(point['startTimeNanos'], dataPrior):
-        count = count + 1
-    print "Added %d points" % count
+    print "Added %d points" % PointsDifference(dataPost, dataPrior)
 
   else:
     print "bad command"
