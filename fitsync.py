@@ -96,14 +96,14 @@ def main():
   try:
     googleClient.users().dataSources().get(
       userId='me',
-      dataSourceId=dataSourceId)
+      dataSourceId=dataSourceId).execute()
   except HttpError, error:
     if not 'DataSourceId not found' in str(error):
       raise error
     # Doesn't exist, so create it.
     googleClient.users().dataSources().create(
       userId='me',
-      body=dataSource)
+      body=dataSource).execute()
 
   datasetId = '%s-%s' % (minLogNs, maxLogNs)
 
