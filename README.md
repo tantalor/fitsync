@@ -30,7 +30,7 @@ This scripts open a browser window where you can log in to your Fitbit account a
 
 ### Google Credentials
 
-[Create a project in Google Developers Console and enable the fitness API](https://console.developers.google.com/flows/enableapi?apiid=fitness). Note the client id and client secret.
+[Create a project in Google Developers Console and enable the fitness API](https://console.developers.google.com/flows/enableapi?apiid=fitness). Create OAuth client ID with Other/Desktop type. Note the client id and client secret.
 
 Run `auth_google.py` to get credentials for write access to a user's body data,
 
