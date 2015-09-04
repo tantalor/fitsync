@@ -108,10 +108,13 @@ def main():
   datasetId = '%s-%s' % (minLogNs, maxLogNs)
 
   def GetData():
-    return googleClient.users().dataSources().datasets().get(
+    ret = googleClient.users().dataSources().datasets().get(
       userId='me',
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
+    #insert empty 'point' when there is nothing
+    if 'point' not in ret: ret['point']=[]
+    return ret
 
   def PointsDifference(left, right):
     return len(
@@ -125,13 +128,17 @@ def main():
   # Get weight dataset.
   if command == 'get':
     data = GetData()
+    numpoints = 0
     for point in data['point']:
       startTimeNanos = point['startTimeNanos']
       fpVal = point['value'][0]['fpVal']
       startTimeSecs = int(startTimeNanos) / 1e9
       readableTime = time.strftime(TIME_FORMAT, time.localtime(startTimeSecs))
+      weightKgs = float(fpVal)
       weightLbs = float(fpVal) * POUNDS_PER_KILOGRAM
-      print "%.1f lbs, %s" % (weightLbs, readableTime)
+      print "%.1f lbs ( %.2f kgs ), %s" % (weightLbs, weightKgs, readableTime)
+      numpoints += 1
+    print "Total %d points (in Google Fit)" % numpoints
 
   # Delete weight dataset.
   elif command == 'delete':
@@ -141,7 +148,7 @@ def main():
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
     dataPost = GetData()
-    print "Deleted %d points" % PointsDifference(dataPrior, dataPost)
+    print "Deleted %d points (from Google Fit)" % PointsDifference(dataPrior, dataPost)
 
   # Upload weight dataset.  
   elif command == 'patch':
@@ -157,7 +164,7 @@ def main():
         point=googleWeightLogs,
       )).execute()
     dataPost = GetData()
-    print "Added %d points" % PointsDifference(dataPost, dataPrior)
+    print "Added %d points (to Google Fit)" % PointsDifference(dataPost, dataPrior)
 
   else:
     print "bad command"
