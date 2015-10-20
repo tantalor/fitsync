@@ -6,6 +6,9 @@ import time
 import yaml
 import argparse
 import logging
+import datetime
+import dateutil.tz
+import dateutil.parser
 
 import fitbit
 from apiclient.discovery import build
@@ -35,13 +38,21 @@ def GetGoogleClient(filename):
   return client
 
 
+dawnOfTime = datetime.datetime(1970, 1, 1, tzinfo=dateutil.tz.tzutc())
+
+def epochOfFitbitLog(logEntry, tzinfo):
+  logTimestamp = "{} {}".format(logEntry["date"], logEntry["time"])
+  logTime = dateutil.parser.parse(logTimestamp).replace(tzinfo=tzinfo)
+  return (logTime - dawnOfTime).total_seconds()
+
 def nano(val):
   """Converts a number to nano (str)."""
   return '%d' % (val * 1e9)
 
 
-def FitbitWeightToGoogleWeight(fitbitWeightLog):
-  logSecs = fitbitWeightLog['logId'] / 1000
+def FitbitWeightToGoogleWeight(fitbitWeightLog, tzinfo):
+  logSecs = epochOfFitbitLog(fitbitWeightLog, tzinfo)
+
   logWeightLbs = fitbitWeightLog['weight']
   logWeightKg = logWeightLbs / POUNDS_PER_KILOGRAM
   return dict(
@@ -77,17 +88,20 @@ def main():
 
   fitbitClient = GetFitbitClient(args.fitbit_creds)
 
+  userProfile = fitbitClient.user_profile_get()
+  tzinfo = dateutil.tz.gettz(userProfile['user']['timezone'])
+
   devices = fitbitClient.get_devices()
   (scale,) = (device for device in devices if device['type'] == 'SCALE')
 
   fitbitBodyweight = fitbitClient.get_bodyweight(period='1m')
   fitbitWeightLogs = fitbitBodyweight['weight']
-  fitbitWeightLogTimes = [log['logId'] / 1000 for log in fitbitWeightLogs]
+  fitbitWeightLogTimes = [epochOfFitbitLog(log, tzinfo) for log in fitbitWeightLogs]
 
   minLogNs = nano(min(fitbitWeightLogTimes))
   maxLogNs = nano(max(fitbitWeightLogTimes))
 
-  googleWeightLogs = [FitbitWeightToGoogleWeight(log)
+  googleWeightLogs = [FitbitWeightToGoogleWeight(log, tzinfo)
                         for log in fitbitWeightLogs]
 
   googleClient = GetGoogleClient(args.google_creds)
@@ -131,7 +145,8 @@ def main():
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
     #insert empty 'point' when there is nothing
-    if 'point' not in ret: ret['point']=[]
+    if 'point' not in ret:
+      ret['point']=[]
     return ret
 
   def PointsDifference(left, right):
