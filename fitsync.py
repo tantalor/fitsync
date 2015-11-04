@@ -1,8 +1,14 @@
 #!/usr/bin/env python
+
 import httplib2
 import sys
 import time
 import yaml
+import argparse
+import logging
+import datetime
+import dateutil.tz
+import dateutil.parser
 
 import fitbit
 from apiclient.discovery import build
@@ -15,27 +21,38 @@ POUNDS_PER_KILOGRAM = 2.20462
 
 TIME_FORMAT = "%a, %d %b %Y %H:%M:%S"
 
-
-def GetFitbitClient():
-  credentials = yaml.load(open('fitbit.yaml'))
+def GetFitbitClient(filename):
+  logging.debug("Creating Fitbit client")
+  credentials = yaml.load(open(filename))
   client = fitbit.Fitbit(**credentials)
+  logging.debug("Fitbit client created")
   return client
 
 
-def GetGoogleClient():
-  credentials = Storage('google.json').get()
+def GetGoogleClient(filename):
+  logging.debug("Creating Google client")
+  credentials = Storage(filename).get()
   http = credentials.authorize(httplib2.Http())
   client = build('fitness', 'v1', http=http)
+  logging.debug("Google client created")
   return client
 
+
+dawnOfTime = datetime.datetime(1970, 1, 1, tzinfo=dateutil.tz.tzutc())
+
+def epochOfFitbitLog(logEntry, tzinfo):
+  logTimestamp = "{} {}".format(logEntry["date"], logEntry["time"])
+  logTime = dateutil.parser.parse(logTimestamp).replace(tzinfo=tzinfo)
+  return (logTime - dawnOfTime).total_seconds()
 
 def nano(val):
   """Converts a number to nano (str)."""
   return '%d' % (val * 1e9)
 
 
-def FitbitWeightToGoogleWeight(fitbitWeightLog):
-  logSecs = fitbitWeightLog['logId'] / 1000
+def FitbitWeightToGoogleWeight(fitbitWeightLog, tzinfo):
+  logSecs = epochOfFitbitLog(fitbitWeightLog, tzinfo)
+
   logWeightLbs = fitbitWeightLog['weight']
   logWeightKg = logWeightLbs / POUNDS_PER_KILOGRAM
   return dict(
@@ -58,22 +75,36 @@ def GetDataSourceId(dataSource):
 
 
 def main():
-  fitbitClient = GetFitbitClient()
+  parser = argparse.ArgumentParser("Transfer Fitbit weight data to Google Fit")
+  parser.add_argument("command", choices=('patch', 'get', 'delete'), help="What to do")
+  parser.add_argument("-d", "--debug", action="count", default=0, help="Increase debugging level")
+  parser.add_argument("-g", "--google-creds", default="google.json", help="Google credentials file")
+  parser.add_argument("-f", "--fitbit-creds", default="fitbit.yaml", help="Fitbit credentials file")
+  args = parser.parse_args()
+
+  debugLevel = logging.WARNING - (args.debug * 10)
+  logging.basicConfig(level=max(debugLevel, 0))
+  logging.root.name = "fitsync"
+
+  fitbitClient = GetFitbitClient(args.fitbit_creds)
+
+  userProfile = fitbitClient.user_profile_get()
+  tzinfo = dateutil.tz.gettz(userProfile['user']['timezone'])
 
   devices = fitbitClient.get_devices()
   (scale,) = (device for device in devices if device['type'] == 'SCALE')
 
-  fitbitBodyweight = fitbitClient.get_bodyweight(period='30d')
+  fitbitBodyweight = fitbitClient.get_bodyweight(period='1m')
   fitbitWeightLogs = fitbitBodyweight['weight']
-  fitbitWeightLogTimes = [log['logId'] / 1000 for log in fitbitWeightLogs]
+  fitbitWeightLogTimes = [epochOfFitbitLog(log, tzinfo) for log in fitbitWeightLogs]
 
   minLogNs = nano(min(fitbitWeightLogTimes))
   maxLogNs = nano(max(fitbitWeightLogTimes))
 
-  googleWeightLogs = [FitbitWeightToGoogleWeight(log)
+  googleWeightLogs = [FitbitWeightToGoogleWeight(log, tzinfo)
                         for log in fitbitWeightLogs]
 
-  googleClient = GetGoogleClient()
+  googleClient = GetGoogleClient(args.google_creds)
 
   dataSource = dict(
     type='raw',
@@ -114,7 +145,8 @@ def main():
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
     #insert empty 'point' when there is nothing
-    if 'point' not in ret: ret['point']=[]
+    if 'point' not in ret:
+      ret['point']=[]
     return ret
 
   def PointsDifference(left, right):
@@ -122,12 +154,8 @@ def main():
       set(point['startTimeNanos'] for point in left['point']) -
       set(point['startTimeNanos'] for point in right['point']))
 
-  command = 'patch'
-  if len(sys.argv) > 1:
-    command = sys.argv[1]
-
   # Get weight dataset.
-  if command == 'get':
+  if args.command == 'get':
     data = GetData()
     numpoints = 0
     for point in data['point']:
@@ -137,22 +165,22 @@ def main():
       readableTime = time.strftime(TIME_FORMAT, time.localtime(startTimeSecs))
       weightKgs = float(fpVal)
       weightLbs = float(fpVal) * POUNDS_PER_KILOGRAM
-      print "%.1f lbs ( %.2f kgs ), %s" % (weightLbs, weightKgs, readableTime)
+      print("%.1f lbs ( %.2f kgs ), %s" % (weightLbs, weightKgs, readableTime))
       numpoints += 1
-    print "Total %d points (in Google Fit)" % numpoints
+    print("Total %d points (in Google Fit)" % numpoints)
 
   # Delete weight dataset.
-  elif command == 'delete':
+  elif args.command == 'delete':
     dataPrior = GetData()
     googleClient.users().dataSources().datasets().delete(
       userId='me',
       dataSourceId=dataSourceId,
       datasetId=datasetId).execute()
     dataPost = GetData()
-    print "Deleted %d points (from Google Fit)" % PointsDifference(dataPrior, dataPost)
+    print("Deleted %d points (from Google Fit)" % PointsDifference(dataPrior, dataPost))
 
   # Upload weight dataset.  
-  elif command == 'patch':
+  elif args.command == 'patch':
     dataPrior = GetData()
     googleClient.users().dataSources().datasets().patch(
       userId='me',
@@ -165,10 +193,8 @@ def main():
         point=googleWeightLogs,
       )).execute()
     dataPost = GetData()
-    print "Added %d points (to Google Fit)" % PointsDifference(dataPost, dataPrior)
+    print("Added %d points (to Google Fit)" % PointsDifference(dataPost, dataPrior))
 
-  else:
-    print "bad command"
 
 
 def PointInData(startTimeNanos, data):
@@ -180,3 +206,4 @@ def PointInData(startTimeNanos, data):
 
 if __name__ == '__main__':
   main()
+

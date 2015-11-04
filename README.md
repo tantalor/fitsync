@@ -40,9 +40,9 @@ This script opens a browser window where you can log in to your Google account a
 
 ## Usage
 
-Run `fitsync.py` to download data from Fitbit and upload to Google,
+Use the `patch` command to download data from Fitbit and upload to Google,
 
-    $ python fitsync.py
+    $ python fitsync.py patch
 
 Use the `delete` command to remove data from Google,
 
@@ -51,6 +51,11 @@ Use the `delete` command to remove data from Google,
 Use the `get` command to see the data stored in Google,
 
     $ python fitsync.py get
+
+There are a few options supported,
+
+    $ python fitsync.py --help
+    
 
 ## See your data
 
