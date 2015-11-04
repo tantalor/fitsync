@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 
 from oauth2client.file import Storage
