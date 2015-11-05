@@ -52,6 +52,13 @@ Use the `get` command to see the data stored in Google,
 
     $ python fitsync.py get
 
+### Cron
+
+The included `cron.sh` script can be used to keep your Fitbit and Google Fit data in sync automatically.
+Simply add the following line to your crontab to run the job daily at 11:00.
+
+`00 11 * * * /path/to/fitsync/cron.sh`
+
 ## See your data
 
 To view weight data on [Google Fit](https://fit.google.com),
