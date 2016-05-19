@@ -101,9 +101,9 @@ def main():
     credentials = dict(
         client_id=client_id,
         client_secret=client_secret,
-				access_token=server.oauth.token['access_token'],
-				refresh_token=server.oauth.token['refresh_token'])
+        access_token=server.oauth.token['access_token'],
+        refresh_token=server.oauth.token['refresh_token'])
     yaml.dump(credentials, open('fitbit.yaml', 'w'))
 
 if __name__ == '__main__':
-	  main()
+    main()
