@@ -54,3 +54,6 @@ docs/_build/
 target/
 google.json
 fitbit.yaml
+
+# vim swap files
+.*.swp

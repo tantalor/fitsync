@@ -20,17 +20,22 @@ Use `pip` to install the required packages,
 
 ### Fitbit Credentials
 
-[Register a Fitbit application](https://dev.fitbit.com/apps/new). Note the client key and secret.
+[Register a Fitbit application](https://dev.fitbit.com/apps/new) with:
+  * OAuth 2.0 Application Type: `Personal`
+  * Callback URL: `http://localhost:8080/`
+  * Default Access Type: `Read-Only`
+  * any values you want for application name, website, organization, and organization website
+Note the resulting `OAuth 2.0 Client ID` and `Client Secret`.
 
 Run `auth_fitbit.py` to get credentials for read access to a user's data,
 
-    $ python auth_fitbit.py [FITBIT CLIENT KEY] [FITBIT CLIENT SECRET] 
+    $ python auth_fitbit.py [FITBIT CLIENT ID] [FITBIT CLIENT SECRET] 
 
-This scripts open a browser window where you can log in to your Fitbit account and authorize the app to "access your profile and data". When you accept, the site will give you a string to copy and paste back into the script, which then writes the credentials to a local file named `fitbit.yaml`.
+This scripts open a browser window where you can log in to your Fitbit account and authorize the app to "access your profile and data". When you accept, the script writes the credentials to a local file named `fitbit.yaml`.
 
 ### Google Credentials
 
-[Create a project in Google Developers Console and enable the fitness API](https://console.developers.google.com/flows/enableapi?apiid=fitness). Create OAuth client ID with Other/Desktop type. Note the client id and client secret.
+[Create a project in Google Developers Console and enable the fitness API](https://console.developers.google.com/flows/enableapi?apiid=fitness). Create an OAuth client ID with `Other UI` type and select `User data`. Note the client id and client secret.
 
 Run `auth_google.py` to get credentials for write access to a user's body data,
 
