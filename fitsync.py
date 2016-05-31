@@ -80,8 +80,6 @@ def GetBodyweight(filename):
                           for log in fitbitWeightLogs]
     logging.debug("Got Fitbit data")
   finally:
-    print credentials
-    print client.client.token
     if client.client.token['access_token'] != credentials['access_token'] or \
        client.client.token['refresh_token'] != credentials['refresh_token']:
       logging.debug("Updating Fitbit credentials")
