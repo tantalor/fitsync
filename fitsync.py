@@ -26,7 +26,18 @@ def GetFitbitClient(filename):
   credentials = yaml.load(open(filename))
   client = fitbit.Fitbit(**credentials)
   logging.debug("Fitbit client created")
-  return client
+  return client, credentials
+
+
+def UpdateFitbitCredentials(client, filename, credentials):
+  dump = False
+  for t in ('access_token', 'refresh_token'):
+    if client.client.token[t] != credentials[t]:
+      credentials[t] = client.client.token[t]
+      dump = True
+  if dump:
+    logging.debug("Updating Fitbit credentials")
+    yaml.dump(credentials, open(filename, 'w'))
 
 
 def GetGoogleClient(filename):
@@ -86,15 +97,20 @@ def main():
   logging.basicConfig(level=max(debugLevel, 0))
   logging.root.name = "fitsync"
 
-  fitbitClient = GetFitbitClient(args.fitbit_creds)
+  fitbitClient, fitbitCreds = GetFitbitClient(args.fitbit_creds)
+  try:
+    logging.debug("Getting Fitbit data")
+    userProfile = fitbitClient.user_profile_get()
+    tzinfo = dateutil.tz.gettz(userProfile['user']['timezone'])
 
-  userProfile = fitbitClient.user_profile_get()
-  tzinfo = dateutil.tz.gettz(userProfile['user']['timezone'])
+    devices = fitbitClient.get_devices()
+    (scale,) = (device for device in devices if device['type'] == 'SCALE')
 
-  devices = fitbitClient.get_devices()
-  (scale,) = (device for device in devices if device['type'] == 'SCALE')
+    fitbitBodyweight = fitbitClient.get_bodyweight(period='1m')
+    logging.debug("Got Fitbit data")
+  finally:
+    UpdateFitbitCredentials(fitbitClient, args.fitbit_creds, fitbitCreds)
 
-  fitbitBodyweight = fitbitClient.get_bodyweight(period='1m')
   fitbitWeightLogs = fitbitBodyweight['weight']
   fitbitWeightLogTimes = [epochOfFitbitLog(log, tzinfo) for log in fitbitWeightLogs]
 
