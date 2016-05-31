@@ -80,10 +80,13 @@ def GetBodyweight(filename):
                           for log in fitbitWeightLogs]
     logging.debug("Got Fitbit data")
   finally:
-    if client.client.token['access_token'] != credentials['access_token'] or \
-       client.client.token['refresh_token'] != credentials['refresh_token']:
+    dump = False
+    for t in ('access_token', 'refresh_token'):
+      if client.client.token[t] != credentials[t]:
+        credentials[t] = client.client.token[t]
+        dump = True
+    if dump:
       logging.debug("Updating Fitbit credentials")
-      credentials.update(client.client.token)
       yaml.dump(credentials, open(filename, 'w'))
 
   return googleWeightLogs, minLogNs, maxLogNs, scale
